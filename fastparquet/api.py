@@ -12,10 +12,14 @@ import pandas as pd
 from . import core, schema, converted_types, encoding, dataframe
 from . import parquet_thrift
 from .cencoding import ThriftObject, from_buffer
-from .util import (default_open, default_remove, ParquetException, val_to_num, ops,
-                   ensure_bytes, check_column_names, metadata_from_many,
+from .util import (default_open, default_remove, ParquetException, val_to_num,
+                   ops, ensure_bytes, check_column_names, metadata_from_many,
                    ex_from_sep, json_decoder, _strip_path_tail)
 
+
+# Find in names of partition files the integer matching "**part.*.parquet",
+# as 'i'.
+PART_ID = re.compile(r'.*part.(?P<i>[\d]+).parquet$')
 
 class ParquetFile(object):
     """The metadata of a parquet file or collection
@@ -186,14 +190,18 @@ class ParquetFile(object):
             fmd = from_buffer(data, "FileMetaData")
         except Exception:
             raise ParquetException('Metadata parse failed: %s' % self.fn)
-        self.fmd = fmd
+        # for rg in fmd.row_groups:
         for rg in fmd[4]:
-            chunks = rg[1]
+            # chunks = rg.columns
+            chunks = rg[1]    
             if chunks:
                 chunk = chunks[0]
+                # s = chunk.file_path
                 s = chunk.get(1)
                 if s:
+                    # chunk.file_path = s.decode()
                     chunk[1] = s.decode()
+        self.fmd = fmd
         self._set_attrs()
 
     def _set_attrs(self):
@@ -239,6 +247,7 @@ class ParquetFile(object):
         return re.sub(r'_metadata(/)?$', '', self.fn).rstrip('/')
 
     def _read_partitions(self):
+        # paths = [rg.columns[0].file_path] ... if rg.columns]
         paths = [rg[1][0].get(1, "") for rg in self.row_groups if rg[1]]
         self.file_scheme, self.cats = paths_to_cats(paths, self.partition_meta)
 
@@ -371,6 +380,16 @@ class ParquetFile(object):
             (and any contained files). Not required if this ParquetFile has
             a .fs file system attribute
         """
+        if not isinstance(rgs, list):
+            if isinstance(rgs, ThriftObject) or isinstance(rgs, dict):
+                # Case 'rgs' is a single row group ('ThriftObject' or 'dict'). 
+                rgs = [rgs]
+            else:
+                # Use `list()` here, not `[]`, as the latter does not transform
+                # generator or tuple into list but encapsulates them in a list.
+                rgs = list(rgs)
+        if not rgs:
+            return
         if self.file_scheme == 'simple':
             raise ValueError("Not possible to remove row groups when file \
 scheme is 'simple'.")
@@ -379,8 +398,6 @@ scheme is 'simple'.")
                 remove_with = self.fs.rm
             else:
                 remove_with = default_remove
-        if not isinstance(rgs, list):
-            rgs = [rgs]
         rgs_to_remove = row_groups_map(rgs)
         if b"fastparquet" not in self.created_by or self.file_scheme == 'flat':
             # Check if some files contain row groups both to be removed and to
@@ -403,9 +420,137 @@ possible.')
         except IOError:
             pass
         self._set_attrs()
-
         if write_fmd:
             self._write_common_metadata(open_with)
+
+    def write_row_groups(self, data, row_group_offsets=None, sort_key=None,
+                         sort_pnames:bool=True, compression=None,
+                         write_fmd:bool=True, open_with=default_open,
+                         mkdirs=None, stats=True):
+        """Write data as new row groups to disk, with optional sorting.
+
+        Parameters
+        ----------
+        data : pandas dataframe or iterable of pandas dataframe
+            Data to add to existing parquet dataset. Only columns are written
+            to disk. Row index is not kept.
+            If a dataframe, columns are checked against parquet file schema.
+        row_group_offsets: int or list of int
+            If int, row-groups will be approximately this many rows, rounded down
+            to make row groups about the same size;
+            If a list, the explicit index values to start new row groups;
+            If `None`, set to 50_000_000.
+        sort_key : function, default None
+            Sorting function used as `key` parameter for `row_groups.sort()`
+            function. This function is called once new row groups have been
+            added to list of existing ones.
+            If not provided, new row groups are only appended to existing ones
+            and the updated list of row groups is not sorted.
+        sort_pnames : bool, default True
+            Align name of part files with position of the 1st row group they
+            contain. Only used if `file_scheme` of parquet file is set to
+            `hive` or `drill`.
+        compression : str or dict, default None
+            Compression to apply to each column, e.g. ``GZIP`` or ``SNAPPY`` or
+            a ``dict`` like ``{"col1": "SNAPPY", "col2": None}`` to specify per
+            column compression types.
+            By default, do not compress.
+            Please, review full description of this parameter in `write`
+            docstring.
+        write_fmd : bool, default True
+            Write updated common metadata to disk.
+        open_with : function
+            When called with a f(path, mode), returns an open file-like object.
+        mkdirs : function
+            When called with a path/URL, creates any necessary dictionaries to
+            make that location writable, e.g., ``os.makedirs``. This is not
+            necessary if using the simple file scheme.
+        stats : True|False|list of str
+            Whether to calculate and write summary statistics.
+            If True (default), do it for every column;
+            If False, never do;
+            If a list of str, do it only for those specified columns.
+        """
+        from .writer import write_simple, write_multi
+        partition_on = list(self.cats)
+        if isinstance(data, pd.DataFrame):
+            self_cols = sorted(self.columns + partition_on)
+            if self_cols != sorted(data.columns):
+                diff_cols = set(data.columns) ^ set(self_cols)
+                raise ValueError(
+                    f'Column names of new data are {sorted(data.columns)}. '
+                    f'But column names in existing file are {self_cols}. '
+                    f'{diff_cols} are columns being either only in existing '
+                     'file or only in new data. This is not possible.')
+        if (self.file_scheme == 'simple'
+            or (self.file_scheme == 'empty' and self.fn[-9:] != '_metadata')):
+            # Case 'simple'.
+            write_simple(self.fn, data, self.fmd,
+                         row_group_offsets=row_group_offsets,
+                         compression=compression, open_with=open_with,
+                         has_nulls=None, append=True, stats=stats)
+        else:
+            # Case 'hive' or 'drill'.
+            write_multi(self.basepath, data, self.fmd,
+                        row_group_offsets=row_group_offsets,
+                        compression=compression, file_scheme=self.file_scheme,
+                        write_fmd=False, open_with=open_with, mkdirs=mkdirs,
+                        partition_on=partition_on, append=True, stats=stats)
+            if sort_key:
+                # Not using 'sort()' because 'row_groups' is a ThriftObject,
+                # not a list.
+                self.fmd.row_groups = sorted(self.fmd.row_groups, key=sort_key)
+            if sort_pnames:
+                self._sort_part_names(False, open_with)
+            if write_fmd:
+                self._write_common_metadata(open_with)
+        self._set_attrs()
+
+    def _sort_part_names(self, write_fmd:bool=True, open_with=default_open):
+        """Align parquet files id to that of the first row group they contain.
+
+        This method only manages files which name follows pattern
+        "part.{id}.parquet". Field `id` is then aligned to the index of the
+        first row group it contains. The index of a row groups is its position
+        in row group list.
+
+        Parameters
+        ----------
+        write_fmd : bool, default True
+            Write updated common metadata to disk.
+        open_with : function
+            When called with a f(path, mode), returns an open file-like object.
+            Only needed if `write_fmd` is `True`.
+        """
+        from .writer import part_ids
+        pids = part_ids(self.fmd.row_groups)
+        if pids:
+            # Keep only items for which row group position does not match part
+            # name id.
+            pids = dict(filter(lambda item: item[0] != item[1][0],
+                               pids.items()))
+            basepath = self.basepath
+            # Give temporary names in a 1st pass to prevent overwritings.
+            for pid in pids:
+                item = pids[pid]
+                rgid, fname = item[0], item[1]
+                src = f'{basepath}/{fname}'
+                parts = partitions(fname)
+                dst = join_path(basepath, parts, f'part.{rgid}.parquet.tmp')
+                self.fs.rename(src, dst)
+            # Give definitive names in a 2nd pass.
+            for pid in pids:
+                item = pids[pid]
+                rgid, fname = item[0], item[1]
+                parts = partitions(fname)
+                src = join_path(basepath, parts, f'part.{rgid}.parquet.tmp')
+                dst_part = join_path(parts, f'part.{rgid}.parquet')
+                dst = join_path(basepath, dst_part)
+                self.fs.rename(src, dst)
+                for col in self.fmd.row_groups[rgid].columns:
+                    col.file_path = dst_part
+            if write_fmd:
+                self._write_common_metadata(open_with)
 
     def _write_common_metadata(self, open_with=default_open):
         """
@@ -1263,3 +1408,45 @@ def row_groups_map(rgs: list) -> dict:
         file = rg.columns[0].file_path
         files_rgs[file].append(rg)
     return files_rgs
+
+
+def partitions(row_group, only_values=False) -> str:
+    """Returns partition values as string.
+    
+    Values of partitions are separated with '/'.
+
+    Parameters
+    ----------
+    row_group : obj or str
+        Row group object or row group `file_path` as given by
+        `rg.columns[0].file_path`.
+    only_values: bool, default False
+        If False, only values of partitions are returned;
+        If True, names and values of partitions are returned (faster).
+
+    Returns
+    -------
+    str
+        Paritions values.
+    """
+    f_path = (row_group if isinstance(row_group, str)
+              else row_group.columns[0].file_path)
+    if '/' in f_path:
+        return ('/'.join(re.split('/|=', f_path)[1::2]) if only_values
+                else f_path.rsplit('/',1)[0])
+
+
+def part_ids(row_groups) -> dict:
+    """Return ids of parquet part files.
+    
+    Find the integer matching "**part.*.parquet" in referenced paths and
+    returns them as keys of a dict.
+    Values of the dict are tuples `(row_group_id, part_name)`.
+    In case of files with multiple row groups, the position (index in row group
+    list) of the 1st group only is kept.
+    """
+    max_rgidx = len(row_groups)-1
+    paths = [rg.columns[0].file_path for rg in row_groups]
+    matches = [(PART_ID.match(path), path) for path in paths]
+    return {int(pid_path[0]['i']): (max_rgidx-i, pid_path[1])
+            for i, pid_path in enumerate(reversed(matches))}

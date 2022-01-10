@@ -47,7 +47,7 @@ def default_remove(paths):
             os.unlink(path)
         except IOError:
             pass
-
+    
 
 def val_from_meta(x, meta):
     try:
@@ -118,6 +118,30 @@ def check_column_names(columns, *args):
                                  "All requested columns: %s\n"
                                  "Available columns: %s"
                                  "" % (missing, arg, columns))
+
+
+def reset_row_idx(data: pd.DataFrame) -> pd.DataFrame:
+    """Reset row (multi-)index as column(s) of the DataFrame.
+
+    Multi-index are stored in columns, one per index level.
+
+    Parameters
+    ----------
+    data : dataframe
+
+    Returns
+    -------
+    dataframe
+    """
+    if isinstance(data.index, pd.MultiIndex):
+        for name, cats, codes in zip(data.index.names, data.index.levels,
+                                     data.index.codes):
+            data = data.assign(**{name: pd.Categorical.from_codes(codes,
+                                                                  cats)})
+        data.reset_index(drop=True)
+    else:
+        data = data.reset_index()
+    return data
 
 
 def metadata_from_many(file_list, verify_schema=False, open_with=default_open,

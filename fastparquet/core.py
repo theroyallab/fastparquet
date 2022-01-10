@@ -613,7 +613,6 @@ def read_row_group(file, rg, columns, categories, schema_helper, cats,
             # do no need to have partition columns in output
             continue
         if scheme == 'hive':
-            s = ex_from_sep('/')
             partitions = [s.split("=") for s in rg.columns[0].file_path.split("/")]
         else:
             partitions = [('dir%i' % i, v) for (i, v) in enumerate(

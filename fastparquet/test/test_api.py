@@ -1257,3 +1257,127 @@ def test_remove_rgs_simple_merge(tempdir):
     assert len(pf.row_groups) == 2  # check row group list updated (4 initially)    
     df_ref = pd.DataFrame({'a':range(4), 'b':['lo']*2+['hi']*2})
     assert pf.to_pandas().equals(df_ref) 
+
+
+def test_write_rgs_simple(tempdir):
+    fn = os.path.join(tempdir, 'test.parq')
+    write(fn, df_remove_rgs[:2], file_scheme='simple')
+    pf = ParquetFile(fn)
+    data_new = df_remove_rgs[2:].reset_index()
+    pf.write_row_groups([data_new])
+    pf2 = ParquetFile(fn)
+    assert pf.fmd == pf2.fmd   # metadata are updated in-place.
+    assert pf.to_pandas().equals(df_remove_rgs)
+
+
+def test_write_rgs_simple_no_index(tempdir):
+    fn = os.path.join(tempdir, 'test.parq')
+    df = df_remove_rgs.reset_index(drop=True)
+    write(fn, df[:2], file_scheme='simple')
+    pf = ParquetFile(fn)
+    pf.write_row_groups([df[2:]])
+    pf2 = ParquetFile(fn)
+    assert pf.fmd == pf2.fmd   # metadata are updated in-place.
+    assert pf.to_pandas().equals(df)
+
+
+def test_write_rgs_hive(tempdir):
+    dn = os.path.join(tempdir, 'test_parq')
+    write(dn, df_remove_rgs[:3], file_scheme='hive', row_group_offsets=[0,2])
+    pf = ParquetFile(dn)
+    data_new = df_remove_rgs.reset_index()
+    pf.write_row_groups([data_new[3:4],data_new[4:5]])
+    assert len(pf.row_groups) == 4
+    pf2 = ParquetFile(dn)
+    assert pf.fmd == pf2.fmd   # metadata are updated in-place.
+    assert pf.to_pandas().equals(df_remove_rgs)
+
+
+def test_write_rgs_hive_partitions(tempdir):
+    dn = os.path.join(tempdir, 'test_parq')
+    write(dn, df_remove_rgs[:3], file_scheme='hive', row_group_offsets=[0,2],
+          partition_on=['country'])
+    pf = ParquetFile(dn)
+    # Fit 'new data' to write into acceptable format (no row index)
+    data_new = df_remove_rgs.reset_index()
+    pf.write_row_groups([data_new[3:4],data_new[4:5]])
+    assert len(pf.row_groups) == 4
+    pf2 = ParquetFile(dn)
+    assert pf.fmd == pf2.fmd   # metadata are updated in-place.
+    df = df_remove_rgs.sort_index()
+    df['country'] = df['country'].astype('category')
+    assert pf.to_pandas().sort_index().equals(df)
+
+
+def test_write_rgs_simple_schema_exception(tempdir):
+    fn = os.path.join(tempdir, 'test.parq')
+    write(fn, df_remove_rgs[:2], file_scheme='simple')
+    pf = ParquetFile(fn)
+    # Dropping a column.
+    data_new = df_remove_rgs[2:].reset_index().drop(columns='humidity')
+    with pytest.raises(ValueError, match="^Column names"):
+        pf.write_row_groups(data_new)
+    # Similar error: missing 'index' column as index is not resetted.
+    data_new = df_remove_rgs[2:]
+    with pytest.raises(ValueError, match="^Column names"):
+        pf.write_row_groups(data_new)
+
+
+def test_file_renaming_no_partition(tempdir):
+    write(tempdir, df_remove_rgs, row_group_offsets=1, file_scheme='hive')
+    pf = ParquetFile(tempdir)
+    assert len(pf.row_groups) == 5
+    # Remove 1 row group.
+    pf.remove_row_groups(pf.row_groups[1])
+    assert len(pf.row_groups) == 4
+    expected = ['part.0.parquet', 'part.2.parquet', 'part.3.parquet',
+                'part.4.parquet']
+    assert [rg.columns[0].file_path for rg in pf.row_groups] == expected
+    # Rename
+    pf._sort_part_names()
+    # Reload (check updated metadata correctly recorded at the same time).
+    pf = ParquetFile(tempdir)
+    expected = ['part.0.parquet', 'part.1.parquet', 'part.2.parquet',
+                'part.3.parquet']
+    assert [rg.columns[0].file_path for rg in pf.row_groups] == expected
+    expected_df = pd.DataFrame(
+               {'humidity': [0.3, 0.9, 0.7, 0.6],
+                'pressure': [1e5, 0.95e5, 0.98e5, 1e5],
+                'city': ['Paris', 'Milan', 'Milan', 'Marseille'],
+                'country': ['France', 'Italy', 'Italy', 'France']},
+               index = [pd.Timestamp('2020/01/02 01:59:00'),
+                        pd.Timestamp('2020/01/02 02:59:00'),
+                        pd.Timestamp('2020/01/02 02:57:00'),
+                        pd.Timestamp('2020/01/02 02:58:00')])
+    assert pf.to_pandas().equals(expected_df)
+
+
+def test_file_renaming_with_partitions(tempdir):
+    write(tempdir, df_remove_rgs, row_group_offsets=1, file_scheme='hive',
+          partition_on=['city'])
+    pf = ParquetFile(tempdir)
+    assert len(pf.row_groups) == 5
+    # Remove 2 row groups.
+    pf.remove_row_groups([pf.row_groups[1], pf.row_groups[3]])
+    assert len(pf.row_groups) == 3
+    expected = ['city=Paris/part.0.parquet', 'city=Milan/part.2.parquet',
+                'city=Marseille/part.4.parquet']
+    assert [rg.columns[0].file_path for rg in pf.row_groups] == expected
+    # Rename
+    pf._sort_part_names()
+    # Reload (check updated metadata correctly recorded at the same time).
+    pf = ParquetFile(tempdir)
+    expected = ['city=Paris/part.0.parquet', 'city=Milan/part.1.parquet',
+                'city=Marseille/part.2.parquet']
+    assert [rg.columns[0].file_path for rg in pf.row_groups] == expected
+    expected_df = pd.DataFrame(
+               {'humidity': [0.3, 0.9, 0.6],
+                'pressure': [1e5, 0.95e5, 1e5],
+                'city': ['Paris', 'Milan', 'Marseille'],
+                'country': ['France', 'Italy', 'France']},
+               index = [pd.Timestamp('2020/01/02 01:59:00'),
+                        pd.Timestamp('2020/01/02 02:59:00'),
+                        pd.Timestamp('2020/01/02 02:58:00')])
+    expected_df['city'] = expected_df['city'].astype('category')
+    expected_df = expected_df.reindex(columns=pf.to_pandas().columns)
+    assert pf.to_pandas().equals(expected_df)
