@@ -1,10 +1,13 @@
 Release Notes
 -------------
 
-Please see the issue `Future Plans`_ for a list of features completed or
-planned in 2021. As of 0.7.0, only one larger item remains to be completed.
+0.8.1
+-----
 
-.. _Future Plans: https://github.com/dask/fastparquet/issues/586
+#. fix critical buffer overflow crash for large number of columns and long column names
+#. metadata handling
+#. thrift int32 for list
+#. avoid error storing NaNs in column stats
 
 0.8.0
 -----
