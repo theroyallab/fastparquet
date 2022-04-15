@@ -1,6 +1,6 @@
 from collections import defaultdict
 import copy
-from distutils.version import LooseVersion
+from packaging.version import Version
 from functools import lru_cache
 import io
 import struct
@@ -19,7 +19,7 @@ from . import parquet_thrift
 from .cencoding import ThriftObject
 from fastparquet import __version__
 
-PANDAS_VERSION = LooseVersion(pd.__version__)
+PANDAS_VERSION = Version(pd.__version__)
 created_by = f"fastparquet-python version {__version__} (build 0)"
 
 
