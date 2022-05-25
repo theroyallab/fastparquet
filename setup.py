@@ -49,7 +49,7 @@ setup(
     version='0.8.1',
     description='Python support for Parquet file format',
     author='Martin Durant',
-    author_email='mdurant@canaconda.com',
+    author_email='mdurant@anaconda.com',
     url='https://github.com/dask/fastparquet/',
     license='Apache License 2.0',
     classifiers=[
