@@ -1053,6 +1053,62 @@ def test_no_string(tmpdir):
     assert pd.isna(df2.A).all()
 
 
+@pytest.fixture
+def df():
+    yield pd.DataFrame(data={"a": [1]})
+
+
+@pytest.fixture
+def pf_fn(tmp_path):
+    yield str(tmp_path.joinpath("tmp.parquet"))
+
+
+@pytest.mark.parametrize("md_value", [None, True, 1, 1.0, 1j, [], {}, set()])
+def test_custom_metadata_write_reject_value_not_str_bytes(df, pf_fn, md_value):
+    with pytest.raises(TypeError):
+        write(pf_fn, df, custom_metadata={"my_key": md_value})
+
+
+@pytest.mark.parametrize("md_key", [None, True, 1, 1.0, 1j, (), frozenset()])
+def test_custom_metadata_write_reject_key_not_str_bytes(df, pf_fn, md_key):
+    with pytest.raises(TypeError):
+        write(pf_fn, df, custom_metadata={md_key: "abc"})
+
+
+@pytest.fixture
+def pf_kvm_fn(df, tmp_path):
+    fn = str(tmp_path.joinpath("tmp_with_kvm.parquet"))
+    write(fn, df, custom_metadata={"k0": "abc", "k1": "efg"})
+    yield fn
+
+
+@pytest.mark.parametrize("md_value", [True, 1, 1.0, 1j, [], {}, set()])
+def test_custom_metadata_update_reject_value_not_str_bytes_none(pf_kvm_fn, md_value):
+    # `None` values are used in `update_file_custom_metadata` to indicate key removal
+    with pytest.raises(TypeError):
+        update_file_custom_metadata(pf_kvm_fn, {"k1": md_value})
+
+
+@pytest.mark.parametrize("md_key", [None, True, 1, 1.0, 1j, (), frozenset()])
+def test_custom_metadata_update_reject_key_not_str_bytes(pf_kvm_fn, md_key):
+    with pytest.raises(TypeError):
+        update_file_custom_metadata(pf_kvm_fn, {md_key: "abc"})
+
+
+@pytest.mark.parametrize(
+    "md_in,md_out", [
+        pytest.param({"k": "v"}, {"k": "v"}, id="str_kv"),
+        pytest.param({b"k": b"v"}, {"k": "v"}, id="bytes_utf8_kv"),
+        pytest.param({b"\xe2": b"\xe2"}, {b"\xe2": b"\xe2"}, id="bytes_non_utf8_kv"),
+    ]
+)
+def test_custom_metadata_key_value_decode(df, pf_fn, md_in, md_out):
+    write(pf_fn, df, custom_metadata=md_in)
+    kvm = ParquetFile(pf_fn).key_value_metadata
+    kvm.pop("pandas")
+    assert kvm == md_out
+
+
 def test_update_file_custom_metadata(tempdir):
     df = pd.DataFrame({'a': [0, 1]})
     custom_metadata_ref = {'a':'test_a', 'b': 'test_b'}
