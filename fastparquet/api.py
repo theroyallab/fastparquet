@@ -104,8 +104,10 @@ class ParquetFile(object):
     _categories = None
 
     def __init__(self, fn, verify=False, open_with=default_open, root=False,
-                 sep=None, fs=None, pandas_nulls=True):
+                 sep=None, fs=None, pandas_nulls=True, dtypes=None):
         self.pandas_nulls = pandas_nulls
+        self._base_dtype = dtypes
+        self.tz = None
         if open_with is default_open and fs is None:
             fs = fsspec.filesystem("file")
         elif fs is not None:
@@ -139,6 +141,9 @@ class ParquetFile(object):
                 self.fn = join_path(fn)
                 with open_with(fn, 'rb') as f:
                     self._parse_header(f, verify)
+                if root:
+                    paths = [fn.replace(root, "")]
+                    self.file_scheme, self.cats = paths_to_cats(paths, None)
             elif "*" in fn or fs.isdir(fn):
                 fn2 = join_path(fn, '_metadata')
                 if fs.exists(fn2):
@@ -168,6 +173,8 @@ class ParquetFile(object):
                     self.fmd = fmd
                     self._set_attrs()
                 self.fs = fs
+            else:
+                raise FileNotFoundError(fn)
         else:
             done = False
             try:
@@ -248,10 +255,7 @@ class ParquetFile(object):
     @property
     def columns(self):
         """ Column names """
-        return [c for c, i in self._schema[0]["children"].items()
-                if len(getattr(i, 'children', [])) == 0
-                or i.converted_type in [parquet_thrift.ConvertedType.LIST,
-                                        parquet_thrift.ConvertedType.MAP]]
+        return [_ for _ in self.dtypes if _ not in self.cats]
 
     @property
     def statistics(self):
@@ -675,7 +679,7 @@ scheme is 'simple'.")
         return out
 
     def to_pandas(self, columns=None, categories=None, filters=[],
-                  index=None, row_filter=False):
+                  index=None, row_filter=False, dtypes=None):
         """
         Read data from parquet into a Pandas dataframe.
 
@@ -752,7 +756,7 @@ selection does not match number of rows in DataFrame.')
         else:
             size = sum(rg.num_rows for rg in rgs)
             selected = [None] * len(rgs)  # just to fill zip, below
-        df, views = self.pre_allocate(size, columns, categories, index)
+        df, views = self.pre_allocate(size, columns, categories, index, dtypes=dtypes)
         start = 0
         if self.file_scheme == 'simple':
             infile = self.open(self.fn, 'rb')
@@ -775,11 +779,15 @@ selection does not match number of rows in DataFrame.')
             start += thislen
         return df
 
-    def pre_allocate(self, size, columns, categories, index):
+    def pre_allocate(self, size, columns, categories, index, dtypes=None):
+        if dtypes is not None:
+            columns = list(dtypes)
+        else:
+            dtypes = self._dtypes(categories)
         categories = self.check_categories(categories)
         cats = {k: v for k, v in self.cats.items() if k in columns}
         df, arrs = _pre_allocate(size, columns, categories, index, cats,
-                                 self._dtypes(categories), self.tz)
+                                 dtypes, self.tz)
         i_no_name = re.compile(r"__index_level_\d+__")
         if self.has_pandas_metadata:
             md = self.pandas_metadata
@@ -913,7 +921,7 @@ selection does not match number of rows in DataFrame.')
     def _dtypes(self, categories=None):
         """ Implied types of the columns in the schema """
         import pandas as pd
-        if not hasattr(self, "_base_dtype"):
+        if self._base_dtype is None:
             if self.has_pandas_metadata:
                 md = self.pandas_metadata['columns']
                 md = {c['name']: c for c in md}
@@ -971,17 +979,20 @@ selection does not match number of rows in DataFrame.')
         return dtype
 
     def __getstate__(self):
+        if self.fmd.row_groups is None:
+            self.fmd.row_groups = []
         return {"fn": self.fn, "open": self.open, "fmd": self.fmd,
-                "pandas_nulls": self.pandas_nulls}
+                "pandas_nulls": self.pandas_nulls, "_base_dtype": self._base_dtype,
+                "tz": self.tz}
 
     def __setstate__(self, state):
         self.__dict__.update(state)
         # Decode 'file_path'.
-        rgs = self.fmd[4]
+        rgs = self.fmd[4] or []
         # 4th condition should not be necessary, depends on 'deepcopy' version.
         # https://github.com/dask/fastparquet/pull/731#issuecomment-1013507287
-        if (rgs[0][1] and rgs[0][1][0] and rgs[0][1][0].get(1)
-            and isinstance(rgs[0][1][0].get(1), bytes)):
+        if (rgs and rgs[0][1] and rgs[0][1][0] and rgs[0][1][0].get(1)
+                and isinstance(rgs[0][1][0].get(1), bytes)):
             # for rg in fmd.row_groups:
             for rg in rgs:
                 # chunk = rg.columns[0]

@@ -214,7 +214,7 @@ def metadata_from_many(file_list, verify_schema=False, open_with=default_open,
                 pieces = [(fn, pieces[fn]) for fn in file_list[1:]]  # recover ordering
                 legacy = False
     else:
-        raise ValueError("Merge requires all PaquetFile instances or none")
+        raise ValueError("Merge requires all ParquetFile instances or none")
     basepath, file_list = analyse_paths(file_list, root=root)
 
     if legacy:
@@ -257,6 +257,9 @@ def metadata_from_many(file_list, verify_schema=False, open_with=default_open,
     rgs0 = pf0.fmd.row_groups
     for k, v in pieces:
         # Set file paths on other files
+        if len(v.schema) > len(pf0.fmd.schema):
+            # or was UPDATED with supercast
+            pf0.fmd.schema = v.schema
         rgs = v.row_groups or []
         for rg in rgs:
             rg.columns[0].file_path = k[len(basepath):].lstrip("/")

@@ -1454,3 +1454,30 @@ def test_len_and_bool(tempdir):
     write(dn, df, file_scheme='hive', row_group_offsets=[0,2])
     pf = ParquetFile(dn)
     assert len(pf) == 2
+
+
+def test_var_dtypes():
+    import pandas as pd
+    from numpy import dtype
+    import fastparquet
+    from collections import OrderedDict
+    pf = fastparquet.ParquetFile(os.path.join(TEST_DATA, "evo"))
+    dt = OrderedDict([('name', dtype('O')),
+                 ('age', dtype('int32')),
+                 ('email', dtype('O')),
+                 ('other', pd.Int64Dtype())
+                 ])
+    out = pf.to_pandas(dtypes=dt)
+    assert out.dtypes.to_dict() == dt
+    assert out.other.isna().all()
+    assert "email@email.email" in out.email.values
+    assert out.iloc[2].tolist() == ['Steve', 36, None, pd.NA]
+
+    pf = fastparquet.ParquetFile(os.path.join(TEST_DATA, "evo"), dtypes=dt)
+    out2 = pf.to_pandas()
+    assert out2.equals(out)
+
+
+def test_not_a_path():
+    with pytest.raises(FileNotFoundError):
+        ParquetFile("notadir")
