@@ -1,6 +1,19 @@
 Release Notes
 -------------
 
+2022.11.0
+---------
+
+#. Switch to calver
+#. Speed up loading of nullable types
+#. Allow schema evolution by addition of columns
+#. Allow specifying dtypes of output
+#. update to scm versioning
+#. update CI and use mamba
+#. fixes to row filter, statistics and tests
+#. support pathlib.Paths
+#. JSON encoder options
+
 0.8.3
 -----
 
