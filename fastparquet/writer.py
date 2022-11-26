@@ -493,7 +493,7 @@ def write_column(f, data, selement, compression=None, datapage_version=None,
 
     if is_categorical_dtype(data.dtype):
         dph = parquet_thrift.DictionaryPageHeader(
-            num_values=len(data.cat.categories),
+            num_values=check_32(len(data.cat.categories)),
             encoding=parquet_thrift.Encoding.PLAIN,
             i32=1
         )
@@ -507,7 +507,8 @@ def write_column(f, data, selement, compression=None, datapage_version=None,
         diff += l0 - l1
         ph = parquet_thrift.PageHeader(
                 type=parquet_thrift.PageType.DICTIONARY_PAGE,
-                uncompressed_page_size=l0, compressed_page_size=l1,
+                uncompressed_page_size=check_32(l0),
+                compressed_page_size=check_32(l1),
                 dictionary_page_header=dph, crc=None, i32=1)
 
         dict_start = f.tell()
@@ -563,7 +564,7 @@ def write_column(f, data, selement, compression=None, datapage_version=None,
             repetition_data, definition_data, encode[encoding](data, selement), 8 * b'\x00'
         ])
         dph = parquet_thrift.DataPageHeader(
-            num_values=tot_rows,
+            num_values=check_32(tot_rows),
             encoding=getattr(parquet_thrift.Encoding, encoding),
             definition_level_encoding=parquet_thrift.Encoding.RLE,
             repetition_level_encoding=parquet_thrift.Encoding.BIT_PACKED,
@@ -579,8 +580,8 @@ def write_column(f, data, selement, compression=None, datapage_version=None,
         diff += l0 - l1
 
         ph = parquet_thrift.PageHeader(type=parquet_thrift.PageType.DATA_PAGE,
-                                       uncompressed_page_size=l0,
-                                       compressed_page_size=l1,
+                                       uncompressed_page_size=check_32(l0),
+                                       compressed_page_size=check_32(l1),
                                        data_page_header=dph, i32=1)
         write_thrift(f, ph)
         f.write(bdata)
@@ -588,9 +589,9 @@ def write_column(f, data, selement, compression=None, datapage_version=None,
         is_compressed = isinstance(compression, dict) or (
             compression is not None and compression.upper() != "UNCOMPRESSED")
         dph = parquet_thrift.DataPageHeaderV2(
-            num_values=tot_rows,
-            num_nulls=num_nulls,
-            num_rows=tot_rows,
+            num_values=check_32(tot_rows),
+            num_nulls=check_32(num_nulls),
+            num_rows=check_32(tot_rows),
             encoding=getattr(parquet_thrift.Encoding, encoding),
             definition_levels_byte_length=len(definition_data),
             repetition_levels_byte_length=0,  # len(repetition_data),
@@ -606,8 +607,8 @@ def write_column(f, data, selement, compression=None, datapage_version=None,
         else:
             diff = 0
         ph = parquet_thrift.PageHeader(type=parquet_thrift.PageType.DATA_PAGE_V2,
-                                       uncompressed_page_size=lb + len(definition_data),
-                                       compressed_page_size=len(bdata) + len(definition_data),
+                                       uncompressed_page_size=check_32(lb + len(definition_data)),
+                                       compressed_page_size=check_32(len(bdata) + len(definition_data)),
                                        data_page_header_v2=dph, i32=1)
         write_thrift(f, ph)
         # f.write(repetition_data)  # no-op
@@ -672,9 +673,35 @@ def write_column(f, data, selement, compression=None, datapage_version=None,
     return chunk
 
 
+class DataFrameSizeWarning(UserWarning):
+    pass
+
+
+WARNING_THRESHOLD = 2**30
+
+
+def warn_size(df, limit=None):
+    limit = limit or WARNING_THRESHOLD
+    total = 0
+    rows = len(df)
+    for col, dtype in df.dtypes.items():
+        if dtype.kind in ['f', 'i', 'M', 'm']:
+            # ignores nullability here, since the bools don't take up much space
+            total += dtype.itemsize * rows
+
+        else:
+            approx = sum([len(str(_)) + 4 for _ in df[col][:100]])
+            total += (approx * rows) // 100
+    if total > limit:
+        warnings.warn(DataFrameSizeWarning(
+            f"Parquet partition about warning size limit, {total} > {limit}"
+        ))
+
+
 def make_row_group(f, data, schema, compression=None, stats=True):
     """ Make a single row group of a Parquet file """
     rows = len(data)
+    warn_size(data)
     if rows == 0:
         return
     if isinstance(data.columns, pd.MultiIndex):
@@ -698,7 +725,6 @@ def make_row_group(f, data, schema, compression=None, stats=True):
                     comp = compression.get('_default', None)
             else:
                 comp = compression
-            st = stats if isinstance(stats, bool) else column.name in stats
             if isinstance(data.columns, pd.MultiIndex):
                 try:
                     name = ast.literal_eval(column.name)
@@ -707,6 +733,12 @@ def make_row_group(f, data, schema, compression=None, stats=True):
                 coldata = data[name]
             else:
                 coldata = data[column.name]
+            if isinstance(stats, int):
+                st = stats
+            elif stats == "auto":
+                st = coldata.dtype.kind in ["i", "f", "M"]
+            else:
+                st = column.name in stats
             chunk = write_column(f, coldata, column,
                                  compression=comp, stats=st)
             cols.append(chunk)
@@ -1151,11 +1183,13 @@ def write(filename, data, row_group_offsets=None,
     custom_metadata: dict
         Key-value metadata to write
         Ignored if appending to an existing parquet data-set.
-    stats: True|False|list(str)
+    stats: True|False|list(str)|"auto"
         Whether to calculate and write summary statistics.
         If True (default), do it for every column;
         If False, never do;
         And if a list of str, do it only for those specified columns.
+        "auto" means True for any int/float or timemstamp column, False
+        otherwise. This will become the default in a future release.
 
     Examples
     --------
@@ -1557,3 +1591,9 @@ def update_file_custom_metadata(path: str, custom_metadata: dict,
         foot_size = write_thrift(f, fmd)
         f.write(struct.pack(b"<I", foot_size))
         f.write(b"PAR1")
+
+
+def check_32(x):
+    if x > 2**31:
+        raise OverflowError
+    return x
