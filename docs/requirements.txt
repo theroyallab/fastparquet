@@ -1,0 +1,7 @@
+pandas
+numpy
+thrift
+numpydoc
+cython
+cramjam
+fastparquet
