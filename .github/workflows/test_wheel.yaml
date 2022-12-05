@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04, windows-2019]
+        os: [ubuntu-22.04, windows-2019]
         architecture: ['x64']
         linux_archs: ["native"]
         numpy_version: ["numpy~=1.20.3", "numpy~=1.21.0", "numpy~=1.22.0", "numpy#latest"]
@@ -18,9 +18,9 @@ jobs:
           # https://cibuildwheel.readthedocs.io/en/stable/options/#build-skip
           - os: windows-2019
             skip: "*2*win* *win32 pp*"
-          - os: ubuntu-20.04
+          - os: ubuntu-22.04
             linux_archs: native
-            skip: "pp*"
+            skip: "pp* *musl*"
 
     name: Test wheel (${{ matrix.numpy_version }} + ${{ matrix.os }})
     env:
@@ -58,7 +58,7 @@ jobs:
           python -m pip install delvewheel==0.0.9 cython
 
       - name: Build wheels
-        uses: joerick/cibuildwheel@v1.9.0
+        uses: joerick/cibuildwheel@v2.11.2
 
       - name: Install wheels
         shell: bash -l {0}
