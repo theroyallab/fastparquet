@@ -1,21 +1,13 @@
-import shutil
 import warnings
 from unittest import mock
 
-from packaging.version import Version
-import pytest
 import pandas as pd
 from numpy import empty as np_empty
 from pandas.testing import assert_frame_equal
 
 from fastparquet.dataframe import empty
-from fastparquet.util import PANDAS_VERSION
 
-
-if PANDAS_VERSION >= Version("0.24.0"):
-    DatetimeTZDtype = pd.DatetimeTZDtype
-else:
-    DatetimeTZDtype = pd.api.types.DatetimeTZDtype
+DatetimeTZDtype = pd.DatetimeTZDtype
 
 
 def test_empty():
@@ -121,7 +113,7 @@ def test_timestamps():
     df, views = empty('M8,M8', 100, cols=['t1', 't2'], timezones={'t1': z,
                                                                   't2': 'UTC'})
     assert df.t1.dt.tz.zone == z
-    assert df.t2.dt.tz.zone == 'UTC'
+    assert str(df.t2.dt.tz) == 'UTC'
 
     df, views = empty('M8,M8', 100, cols=['t1', 't2'], timezones={'t1': z,
                                                                   't2': z2})
