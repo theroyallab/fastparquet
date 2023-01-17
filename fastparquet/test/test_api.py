@@ -39,7 +39,7 @@ def test_statistics(tempdir):
                        'z': ['a', 'b', 'c']})
 
     fn = os.path.join(tempdir, 'foo.parquet')
-    write(fn, df, row_group_offsets=[0, 2])
+    write(fn, df, row_group_offsets=[0, 2], stats=True)
 
     p = ParquetFile(fn)
 
@@ -111,8 +111,9 @@ def test_sorted_row_group_columns(tempdir):
                        'z': ['a', 'b', 'c', 'd']})
 
     fn = os.path.join(tempdir, 'foo.parquet')
-    write(fn, df, row_group_offsets=[0, 2], object_encoding={'v': 'json',
-                                                             'z': 'utf8'})
+    write(fn, df, row_group_offsets=[0, 2],
+          object_encoding={'v': 'json', 'z': 'utf8'},
+          stats=True)
 
     pf = ParquetFile(fn)
 
@@ -316,6 +317,8 @@ def test_filelike(tempdir):
 
 
 def test_cast_index(tempdir):
+    if pd.__version__.split(".", 1)[0] > "1":
+        pytest.skip()
     df = pd.DataFrame({'i8': np.array([1, 2, 3, 4], dtype='uint8'),
                        'i16': np.array([1, 2, 3, 4], dtype='int16'),
                        'i32': np.array([1, 2, 3, 4], dtype='int32'),
