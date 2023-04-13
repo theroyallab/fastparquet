@@ -5,10 +5,9 @@ import numpy as np
 from pandas import (
     Categorical, DataFrame, Series,
     CategoricalIndex, RangeIndex, Index, MultiIndex,
-    DatetimeIndex
+    DatetimeIndex, CategoricalDtype
 )
 from pandas.core.arrays.masked import BaseMaskedDtype
-from pandas.api.types import is_categorical_dtype
 import warnings
 
 from .util import PANDAS_VERSION
@@ -19,7 +18,7 @@ class Dummy(object):
 
 
 def empty(types, size, cats=None, cols=None, index_types=None, index_names=None,
-          timezones=None):
+          timezones=None, columns_dtype=None):
     """
     Create empty DataFrame to assign into
 
@@ -66,6 +65,8 @@ def empty(types, size, cats=None, cols=None, index_types=None, index_names=None,
     timezones: dict {col: timezone_str}
         for timestamp type columns, apply this timezone to the pandas series;
         the numpy view will be UTC.
+    file_has_columns: bool, default False
+        for files that are filtered but had columns before
 
     Returns
     -------
@@ -91,7 +92,7 @@ def empty(types, size, cats=None, cols=None, index_types=None, index_names=None,
     df = OrderedDict()
     for t, col in zip(types, cols):
         if str(t) == 'category':
-            df[str(col)] = Categorical([], categories=cat(col), fastpath=True)
+            df[str(col)] = Categorical.from_codes([], categories=cat(col))
         elif isinstance(t, BaseMaskedDtype):
             # pandas masked types
             arr_type = t.construct_array_type()
@@ -117,7 +118,7 @@ def empty(types, size, cats=None, cols=None, index_types=None, index_names=None,
                                   "" % (timezones[str(col)], col))
             df[str(col)] = d
 
-    columns = [] if len(df) == 0 else None
+    columns = Index(df.keys(), dtype=columns_dtype) if columns_dtype is not None else None
     df = DataFrame(df, columns=columns)
     if not index_types:
         index = RangeIndex(size)
@@ -127,9 +128,9 @@ def empty(types, size, cats=None, cols=None, index_types=None, index_names=None,
             raise ValueError('If using an index, must give an index name')
         if str(t) == 'category':
             # https://github.com/dask/fastparquet/issues/576#issuecomment-805579337
-            temp = Categorical([], categories=cat(col), fastpath=True)
+            temp = Categorical.from_codes([], categories=cat(col))
             vals = np.zeros(size, dtype=temp.codes.dtype)
-            c = Categorical(vals, dtype=temp.dtype, fastpath=True)
+            c = Categorical.from_codes(vals, dtype=temp.dtype)
             index = CategoricalIndex(c)
 
             views[col] = vals
@@ -191,8 +192,7 @@ def empty(types, size, cats=None, cols=None, index_types=None, index_names=None,
         if isinstance(bvalues, Categorical):
             code = np.zeros(shape=shape, dtype=bvalues.codes.dtype)
 
-            values = Categorical(values=code, dtype=bvalues.dtype,
-                                 fastpath=True)
+            values = Categorical.from_codes(codes=code, dtype=bvalues.dtype)
 
         elif getattr(bvalues.dtype, 'tz', None):
             values = np.zeros(shape=shape, dtype='M8[ns]')
@@ -231,7 +231,7 @@ def empty(types, size, cats=None, cols=None, index_types=None, index_names=None,
             inds = list(range(inds.start, inds.stop, inds.step))
         for i, ind in enumerate(inds):
             col = df.columns[ind]
-            if is_categorical_dtype(dtype):
+            if isinstance(dtype, CategoricalDtype):
                 views[col] = block.values._codes
                 views[col+'-catdef'] = block.values
             elif getattr(block.dtype, 'tz', None):

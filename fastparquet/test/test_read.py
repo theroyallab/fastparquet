@@ -10,6 +10,7 @@ import pytest
 import fastparquet
 from fastparquet import writer, core
 from fastparquet.cencoding import NumpyIO
+from fastparquet.util import PANDAS_VERSION
 
 from .util import TEST_DATA, s3, tempdir
 
@@ -376,19 +377,22 @@ def test_multi_index_category(tempdir):
     assert str(dg.c.tolist()) == str(df.c.tolist())  # ignore nan and cats
 
 
-def test_no_columns(tempdir):
+@pytest.mark.parametrize("filename", ["no_columns.parquet", "no_columns_new.parquet"])
+def test_no_columns(tempdir, filename):
     # https://github.com/dask/fastparquet/issues/361
     # Create a non-empty DataFrame, then select no columns. That way we get
     # _some_ rows, _no_ columns.
     #
     # df = pd.DataFrame({"A": [1, 2]})[[]]
-    # fastparquet.write("test-data/no_columns.parquet", df)
-    pf = fastparquet.ParquetFile(os.path.join(TEST_DATA, "no_columns.parquet"))
+    # fastparquet.write(f"test-data/{filename}", df)
+    pf = fastparquet.ParquetFile(os.path.join(TEST_DATA, filename))
     assert pf.count() == 2
     assert pf.columns == []
     result = pf.to_pandas()
     expected = pd.DataFrame({"A": [1, 2]})[[]]
     assert len(result) == 2
+    if filename == "no_columns.parquet" and PANDAS_VERSION.release > (2, 0, 0):
+        expected.columns = pd.RangeIndex(start=0, stop=0)
     pd.testing.assert_frame_equal(result, expected)
 
 
