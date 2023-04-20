@@ -858,12 +858,14 @@ selection does not match number of rows in DataFrame.')
             return cats or {}
         if cats is None:
             return categ or {}
-        if set(cats) - set(categ):
+        if set(cats) - set(categ) and len(self.row_groups) > 1:
             raise TypeError("Attempt to read as category a field that "
                             "was not stored as such")
         if isinstance(cats, dict):
             return cats
-        return {k: v for k, v in categ.items() if k in cats}
+        out = {k: v for k, v in categ.items() if k in cats}
+        out.update({c: pd.RangeIndex(0, 2**14) for c in cats if c not in categ})
+        return out
 
     @property
     def has_pandas_metadata(self):
