@@ -1,6 +1,16 @@
 Release Notes
 =============
 
+2023.4.0
+--------
+
+#. allow loading categoricals even if not so in the pandas metadata, when a column is dict-encoded
+and we only have one row-group (#863)
+#. apply dtype to the columns names series, even when selecting no columns (#861, 859)
+#. don't make strings while estimating bye column size (#858)
+#. handle upstream depr (#857, 856)
+
+
 2023.2.0
 --------
 
