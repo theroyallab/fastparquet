@@ -85,7 +85,7 @@ jobs:
       - name: Setup conda
         uses: mamba-org/provision-with-micromamba@main
         with:
-          environment-file: ci/environment-py38.yml
+          environment-file: ci/environment-py39.yml
 
       - name: pip-install
         shell: bash -l {0}
@@ -122,12 +122,12 @@ jobs:
         run: |
           pip install Cython
           pip install hypothesis
-          pip install pytest-xdist pytest-asyncio # Needed for a pandas test, also runs tests in parallel
+          pip install pytest-httpserver pytest-localserver pytest-xdist pytest-asyncio
           pip install -e . --no-deps # Install fastparquet
           git clone https://github.com/pandas-dev/pandas
           cd pandas
           python setup.py build_ext -j 4
-          pip install -e . --no-build-isolation --no-use-pep517
+          pip install -e . --no-build-isolation
 
       - name: Run Tests
         shell: bash -l {0}

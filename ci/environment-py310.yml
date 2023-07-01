@@ -19,3 +19,5 @@ dependencies:
   - ujson
   - python-rapidjson
   - versioneer
+  - meson-python
+  - pyarrow
