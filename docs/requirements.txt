@@ -1,7 +1,10 @@
 pandas
 numpy
 thrift
-numpydoc
 cython
 cramjam
 fastparquet
+numpydoc
+sphynx<7
+docsutils<0.19
+sphinx_rtd_theme
