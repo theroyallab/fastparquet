@@ -264,7 +264,8 @@ def read_data_page_v2(infile, schema_helper, se, data_header2, cmd,
     # can read-into
     into0 = ((use_cat or converts_inplace(se) and see)
              and data_header2.num_nulls == 0
-             and max_rep == 0 and assign.dtype.kind != "O" and row_filter is None)
+             and max_rep == 0 and assign.dtype.kind != "O" and row_filter is None
+             and assign.dtype.kind not in "Mm")  # TODO: this can be done in place but is complex
     if row_filter is None:
         row_filter = Ellipsis
     # can decompress-into
@@ -548,7 +549,7 @@ def read_col(column, schema_helper, infile, use_cat=False,
             if d and not use_cat:
                 part[defi == max_defi] = dic[val]
             elif not use_cat:
-                part[defi == max_defi] = convert(val, se)
+                part[defi == max_defi] = convert(val, se, dtype=assign.dtype)
             else:
                 part[defi == max_defi] = val
         else:
@@ -557,7 +558,7 @@ def read_col(column, schema_helper, infile, use_cat=False,
                 piece = piece._data
             if use_cat and not d:
                 # only possible for multi-index
-                val = convert(val, se)
+                val = convert(val, se, dtype=assign.dtype)
                 try:
                     i = pd.Categorical(val)
                 except:
@@ -567,7 +568,7 @@ def read_col(column, schema_helper, infile, use_cat=False,
             elif d and not use_cat:
                 piece[:] = dic[val]
             elif not use_cat:
-                piece[:] = convert(val, se)
+                piece[:] = convert(val, se, dtype=assign.dtype)
             else:
                 piece[:] = val
 
