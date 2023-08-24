@@ -36,5 +36,5 @@ Similarly, providing an open function and another to make any necessary director
 
 .. raw:: html
 
-    <script data-goatcounter="https://distdatacats.goatcounter.com/count"
+    <script data-goatcounter="https://fastparquet.goatcounter.com/count"
         async src="//gc.zgo.at/count.js"></script>

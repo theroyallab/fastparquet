@@ -192,5 +192,5 @@ NB: minor versions up to 0.6.3 fix build issues
 
 .. raw:: html
 
-    <script data-goatcounter="https://distdatacats.goatcounter.com/count"
+    <script data-goatcounter="https://fastparquet.goatcounter.com/count"
         async src="//gc.zgo.at/count.js"></script>
