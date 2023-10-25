@@ -27,7 +27,7 @@ jobs:
       CIBW_TEST_SKIP: "*"
 
     steps:
-      - uses: actions/checkout
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -38,13 +38,13 @@ jobs:
 
       - name: Set up QEMU
         if: runner.os == 'Linux'
-        uses: docker/setup-qemu-action
+        uses: docker/setup-qemu-action@v3
         with:
           platforms: all
 
       - name: Add msbuild to PATH
         if: runner.os == 'Windows'
-        uses: microsoft/setup-msbuild
+        uses: microsoft/setup-msbuild@1.3
 
       - name: delvewheel install
         if: runner.os == 'Windows'
@@ -82,7 +82,7 @@ jobs:
       CIBW_TEST_SKIP: "*"
 
     steps:
-      - uses: actions/checkout
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -93,13 +93,13 @@ jobs:
 
       - name: Set up QEMU
         if: runner.os == 'Linux'
-        uses: docker/setup-qemu-action
+        uses: docker/setup-qemu-action@v3
         with:
           platforms: all
 
       - name: Add msbuild to PATH
         if: runner.os == 'Windows'
-        uses: microsoft/setup-msbuild
+        uses: microsoft/setup-msbuild@1.3
 
       - name: delvewheel install
         if: runner.os == 'Windows'
@@ -137,7 +137,7 @@ jobs:
       CIBW_TEST_SKIP: "*"
 
     steps:
-      - uses: actions/checkout
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -148,13 +148,13 @@ jobs:
 
       - name: Set up QEMU
         if: runner.os == 'Linux'
-        uses: docker/setup-qemu-action
+        uses: docker/setup-qemu-action@v3
         with:
           platforms: all
 
       - name: Add msbuild to PATH
         if: runner.os == 'Windows'
-        uses: microsoft/setup-msbuild
+        uses: microsoft/setup-msbuild@1.3
 
       - name: delvewheel install
         if: runner.os == 'Windows'
@@ -192,7 +192,7 @@ jobs:
       CIBW_BEFORE_TEST: "git status"
 
     steps:
-        - uses: actions/checkout
+        - uses: actions/checkout@v4
           with:
             fetch-depth: 0
 
@@ -203,13 +203,13 @@ jobs:
 
         - name: Set up QEMU
           if: runner.os == 'Linux'
-          uses: docker/setup-qemu-action
+          uses: docker/setup-qemu-action@v3
           with:
             platforms: all
 
         - name: Add msbuild to PATH
           if: runner.os == 'Windows'
-          uses: microsoft/setup-msbuild
+          uses: microsoft/setup-msbuild@1.3
 
         - name: delvewheel install
           if: runner.os == 'Windows'
@@ -241,19 +241,19 @@ jobs:
       CIBW_TEST_SKIP: "*"
 
     steps:
-      - uses: actions/checkout
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Setup Python
-        uses: actions/setup-python
+        uses: actions/setup-python@v4
         with:
           python-version: "3.11"
 
       - name: Build wheels
         uses: joerick/cibuildwheel@v2.16.2
 
-      - uses: actions/upload-artifact
+      - uses: actions/upload-artifact@v3
         with:
           path: ./wheelhouse/*.whl
           name: wheels

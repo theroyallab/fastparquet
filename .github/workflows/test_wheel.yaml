@@ -33,24 +33,24 @@ jobs:
       CIBW_BUILD: "cp38-*"
       CIBW_MANYLINUX_X86_64_IMAGE: "manylinux2014"
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Setup Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
-          python-version: "3.8"
+          python-version: "3.11"
 
       - name: Set up QEMU
         if: runner.os == 'Linux'
-        uses: docker/setup-qemu-action@v1
+        uses: docker/setup-qemu-action@v3
         with:
           platforms: all
 
       - name: Add msbuild to PATH
         if: runner.os == 'Windows'
-        uses: microsoft/setup-msbuild@v1.0.2
+        uses: microsoft/setup-msbuild@v1.3
 
       - name: delvewheel install
         if: runner.os == 'Windows'
@@ -58,7 +58,7 @@ jobs:
           python -m pip install delvewheel==0.0.9 cython
 
       - name: Build wheels
-        uses: joerick/cibuildwheel@v2.11.2
+        uses: joerick/cibuildwheel@v2.16.2
 
       - name: Install wheels
         shell: bash -l {0}
