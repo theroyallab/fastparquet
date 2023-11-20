@@ -1611,6 +1611,7 @@ def update_file_custom_metadata(path: str, custom_metadata: dict,
         Local path to file.
     custom_metadata : dict
         Key-value metadata to update in thrift object.
+        The values must be strings or binary. To pass a dictionary, serialize it as json string then encode it in binary.
     is_metadata_file : bool, default None
         Define if target file is a pure metadata file, or is a parquet data
         file. If `None`, is set depending file name.
