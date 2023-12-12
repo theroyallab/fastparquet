@@ -581,3 +581,8 @@ def test_reading_non_std_kvm():
         "k_int": 1,
         "k_bool": True,
     }
+
+def test_reading_timezone():
+    fn = os.path.join(TEST_DATA, "test-timezone.parquet")
+    pf = fastparquet.ParquetFile(fn)
+    assert pf.dtypes['date'] == 'datetime64[ns, UTC]'
