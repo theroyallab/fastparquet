@@ -32,9 +32,9 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Set up QEMU
         if: runner.os == 'Linux'
@@ -44,7 +44,7 @@ jobs:
 
       - name: Add msbuild to PATH
         if: runner.os == 'Windows'
-        uses: microsoft/setup-msbuild@v1
+        uses: microsoft/setup-msbuild@v2
 
       - name: delvewheel install
         if: runner.os == 'Windows'
@@ -52,7 +52,7 @@ jobs:
           python -m pip install delvewheel cython
 
       - name: Build wheels
-        uses: joerick/cibuildwheel@v2.16.2
+        uses: joerick/cibuildwheel@v2.16.5
 
       - uses: actions/upload-artifact@v3
         with:
@@ -87,9 +87,9 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Set up QEMU
         if: runner.os == 'Linux'
@@ -99,7 +99,7 @@ jobs:
 
       - name: Add msbuild to PATH
         if: runner.os == 'Windows'
-        uses: microsoft/setup-msbuild@v1
+        uses: microsoft/setup-msbuild@v2
 
       - name: delvewheel install
         if: runner.os == 'Windows'
@@ -107,7 +107,7 @@ jobs:
           python -m pip install delvewheel cython
 
       - name: Build wheels
-        uses: joerick/cibuildwheel@v2.16.2
+        uses: joerick/cibuildwheel@v2.16.5
 
       - uses: actions/upload-artifact@v3
         with:
@@ -142,9 +142,9 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Set up QEMU
         if: runner.os == 'Linux'
@@ -154,7 +154,7 @@ jobs:
 
       - name: Add msbuild to PATH
         if: runner.os == 'Windows'
-        uses: microsoft/setup-msbuild@v1
+        uses: microsoft/setup-msbuild@v2
 
       - name: delvewheel install
         if: runner.os == 'Windows'
@@ -162,7 +162,7 @@ jobs:
           python -m pip install delvewheel cython
 
       - name: Build wheels
-        uses: joerick/cibuildwheel@v2.16.2
+        uses: joerick/cibuildwheel@v2.16.5
 
       - uses: actions/upload-artifact@v3
         with:
@@ -197,9 +197,9 @@ jobs:
             fetch-depth: 0
 
         - name: Setup Python
-          uses: actions/setup-python@v4
+          uses: actions/setup-python@v5
           with:
-            python-version: "3.11"
+            python-version: "3.12"
 
         - name: Set up QEMU
           if: runner.os == 'Linux'
@@ -209,7 +209,7 @@ jobs:
 
         - name: Add msbuild to PATH
           if: runner.os == 'Windows'
-          uses: microsoft/setup-msbuild@v1
+          uses: microsoft/setup-msbuild@v2
 
         - name: delvewheel install
           if: runner.os == 'Windows'
@@ -217,7 +217,7 @@ jobs:
             python -m pip install delvewheel cython
 
         - name: Build wheels
-          uses: joerick/cibuildwheel@v2.16.2
+          uses: joerick/cibuildwheel@v2.16.5
 
         - uses: actions/upload-artifact@v3
           with:
@@ -246,12 +246,12 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Build wheels
-        uses: joerick/cibuildwheel@v2.16.2
+        uses: joerick/cibuildwheel@v2.16.5
 
       - uses: actions/upload-artifact@v3
         with:
