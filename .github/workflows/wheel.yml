@@ -52,7 +52,7 @@ jobs:
           python -m pip install delvewheel cython
 
       - name: Build wheels
-        uses: joerick/cibuildwheel@v2.16.5
+        uses: joerick/cibuildwheel@v2.18.1
 
       - uses: actions/upload-artifact@v3
         with:
@@ -76,7 +76,7 @@ jobs:
     name: ${{ matrix.os }} ${{ matrix.architecture }} ${{ matrix.linux_archs }}
     env:
       CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: "delvewheel repair -w {dest_dir} {wheel}"
-      CIBW_BEFORE_ALL: "pip install numpy cython"
+      CIBW_BEFORE_ALL: "pip install numpy==2.0.0rc1 cython"
       CIBW_SKIP: ${{ matrix.skip }}
       CIBW_ARCHS_LINUX: ${{ matrix.linux_archs }}
       CIBW_TEST_SKIP: "*"
@@ -107,7 +107,7 @@ jobs:
           python -m pip install delvewheel cython
 
       - name: Build wheels
-        uses: joerick/cibuildwheel@v2.16.5
+        uses: joerick/cibuildwheel@v2.18.1
 
       - uses: actions/upload-artifact@v3
         with:
@@ -131,7 +131,7 @@ jobs:
     name: ${{ matrix.os }} ${{ matrix.architecture}}
     env:
       CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: "delvewheel repair -w {dest_dir} {wheel}"
-      CIBW_BEFORE_ALL: "pip install numpy cython"
+      CIBW_BEFORE_ALL: "pip install numpy==2.0.0rc1 cython"
       CIBW_SKIP: ${{ matrix.skip }}
       CIBW_ARCHS_LINUX: ${{ matrix.linux_archs }}
       CIBW_TEST_SKIP: "*"
@@ -162,7 +162,7 @@ jobs:
           python -m pip install delvewheel cython
 
       - name: Build wheels
-        uses: joerick/cibuildwheel@v2.16.5
+        uses: joerick/cibuildwheel@v2.18.1
 
       - uses: actions/upload-artifact@v3
         with:
@@ -185,7 +185,7 @@ jobs:
     name: ${{ matrix.os }} ${{ matrix.architecture}}
     env:
       CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: "delvewheel repair -w {dest_dir} {wheel}"
-      CIBW_BEFORE_ALL: "pip install numpy cython"
+      CIBW_BEFORE_ALL: "pip install numpy==2.0.0rc1 cython"
       CIBW_SKIP: ${{ matrix.skip }}
       CIBW_ARCHS_LINUX: ${{ matrix.linux_archs }}
       CIBW_TEST_SKIP: "*"
@@ -217,7 +217,7 @@ jobs:
             python -m pip install delvewheel cython
 
         - name: Build wheels
-          uses: joerick/cibuildwheel@v2.16.5
+          uses: joerick/cibuildwheel@v2.18.1
 
         - uses: actions/upload-artifact@v3
           with:
@@ -235,7 +235,7 @@ jobs:
 
     name: ${{ matrix.os }} ${{ matrix.architecture}}
     env:
-      CIBW_BEFORE_ALL: "pip install numpy cython"
+      CIBW_BEFORE_ALL: "pip install numpy==2.0.0rc1 cython"
       CIBW_SKIP: ${{ matrix.skip }}
       CIBW_ARCHS_MACOS: ${{ matrix.architecture }}
       CIBW_TEST_SKIP: "*"
@@ -251,7 +251,7 @@ jobs:
           python-version: "3.12"
 
       - name: Build wheels
-        uses: joerick/cibuildwheel@v2.16.5
+        uses: joerick/cibuildwheel@v2.18.1
 
       - uses: actions/upload-artifact@v3
         with:
